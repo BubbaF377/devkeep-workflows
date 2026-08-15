@@ -1,0 +1,61 @@
+name: Analyze codebase
+
+# Reusable workflow (Requirement #34): dispatched once by the setup wizard
+# right after a project is linked or created, via workflow_dispatch — not
+# on every push, unlike draft-log-entry.yml. Needs the caller's actual file
+# tree, not just a diff, so unlike the other reusable workflows this one
+# checks out both devlore (for the scripts) and the caller's own repo (for
+# the content to analyze), into separate paths in the same job.
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        required: true
+        type: string
+      vault-repo:
+        required: true
+        type: string
+    secrets:
+      anthropic-api-key:
+        required: true
+      devlore-github-token:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: devlore
+    steps:
+      - name: Checkout devlore
+        uses: actions/checkout@v7
+        with:
+          repository: BubbaF377/devlore
+          token: ${{ secrets.devlore-github-token }}
+          path: devlore
+
+      - name: Checkout project
+        uses: actions/checkout@v7
+        with:
+          path: project
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: devlore/package-lock.json
+
+      - run: npm ci
+
+      - run: npx ts-node src/actions/analyze-codebase.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          PROJECT_NAME: ${{ inputs.project-name }}
+          VAULT_REPO: ${{ inputs.vault-repo }}
+          PROJECT_PATH: ${{ github.workspace }}/project

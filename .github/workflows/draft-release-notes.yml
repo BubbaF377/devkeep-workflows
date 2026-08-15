@@ -1,0 +1,61 @@
+name: Draft release notes
+
+# Reusable workflow, called via `workflow_call` alongside "Consolidate
+# release" when a linked project pushes a `v*.*.*` tag. Drafts a
+# user-facing release notes summary from the log entries since the
+# previous release tag and commits it straight into the vault — no PR,
+# unlike master docs, since it's pinned to one immutable tag rather than
+# an evolving official record.
+#
+# Runs in the caller's context, same as draft-log-entry.yml: the default
+# GITHUB_TOKEN is scoped to the caller repo (used for the tags/compare
+# lookups against it), while writing into the vault needs the
+# devlore-github-token secret instead.
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      vault-repo:
+        required: true
+        type: string
+    secrets:
+      anthropic-api-key:
+        required: true
+      devlore-github-token:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  draft-release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout devlore
+        uses: actions/checkout@v7
+        with:
+          repository: BubbaF377/devlore
+          token: ${{ secrets.devlore-github-token }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx ts-node src/actions/draft-release-notes.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROJECT_NAME: ${{ inputs.project-name }}
+          PROJECT_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          VAULT_REPO: ${{ inputs.vault-repo }}

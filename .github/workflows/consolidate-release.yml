@@ -1,0 +1,59 @@
+name: Consolidate release
+
+# Reusable workflow (Requirement #8), called via `workflow_call` when a
+# linked project pushes a `v*.*.*` tag. Reads log entries since the last
+# release plus current master docs, drafts an update, and opens a PR
+# against this repo — never commits directly (Requirement #5).
+#
+# Runs in the caller's context, same as draft-log-entry.yml and
+# draft-release-notes.yml: the default GITHUB_TOKEN is scoped to the
+# caller repo (used for the tags/compare lookups against it), while
+# writing into the vault needs the devlore-github-token secret instead.
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      vault-repo:
+        required: true
+        type: string
+    secrets:
+      anthropic-api-key:
+        required: true
+      devlore-github-token:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout devlore
+        uses: actions/checkout@v7
+        with:
+          repository: BubbaF377/devlore
+          token: ${{ secrets.devlore-github-token }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx ts-node src/actions/consolidate-release.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PROJECT_NAME: ${{ inputs.project-name }}
+          PROJECT_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          VAULT_REPO: ${{ inputs.vault-repo }}
