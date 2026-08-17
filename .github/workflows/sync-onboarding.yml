@@ -1,0 +1,59 @@
+name: Sync onboarding guide
+
+# Reusable workflow (Requirement #48): called via `workflow_call`
+# alongside consolidate-release/draft-release-notes/analyze-codebase when
+# a linked project pushes a `v*.*.*` tag. Unlike those release-scoped
+# docs, this doesn't take a `tag` input at all — the onboarding guide
+# isn't about one specific release, just always regenerated at that
+# cadence since a real release is itself a meaningful "the world
+# changed" event (see sync-onboarding.ts's own header comment for why
+# there's no drift-check the way sync-test-plan.yml/sync-user-manual.yml
+# have).
+#
+# Same credential story as sync-test-plan.yml: never needs the caller's
+# default GITHUB_TOKEN — only ever does plain content reads/writes
+# against the project repo and the vault, and the wizard's own
+# devlore-github-token already has "All repositories" access to both.
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        required: true
+        type: string
+      vault-repo:
+        required: true
+        type: string
+    secrets:
+      anthropic-api-key:
+        required: true
+      devlore-github-token:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync-onboarding:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout devlore
+        uses: actions/checkout@v7
+        with:
+          repository: BubbaF377/devlore
+          token: ${{ secrets.devlore-github-token }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx ts-node src/actions/sync-onboarding.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          PROJECT_NAME: ${{ inputs.project-name }}
+          PROJECT_REPO: ${{ github.repository }}
+          VAULT_REPO: ${{ inputs.vault-repo }}
