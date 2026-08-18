@@ -7,6 +7,12 @@ name: Draft log entry
 # Runs in the caller's context: the default GITHUB_TOKEN is scoped to the
 # caller repo (used to read its diff via the compare API), while writing
 # into this repo needs the devlore-github-token secret instead.
+#
+# Installs devlore as the published @starterculture/devlore npm package
+# rather than checking out the private BubbaF377/devlore source repo —
+# every linked project's own devlore-github-token is scoped to repos it
+# manages, never to the maintainer's private source, so a checkout-based
+# approach only ever worked for the maintainer's own instance.
 
 on:
   workflow_call:
@@ -30,20 +36,13 @@ jobs:
   draft:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout devlore
-        uses: actions/checkout@v7
-        with:
-          repository: BubbaF377/devlore
-          token: ${{ secrets.devlore-github-token }}
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      - run: npm install @starterculture/devlore
 
-      - run: npx ts-node src/actions/draft-log-entry.ts
+      - run: node node_modules/@starterculture/devlore/dist/actions/draft-log-entry.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
           DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
