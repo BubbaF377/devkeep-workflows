@@ -3,9 +3,17 @@ name: Analyze codebase
 # Reusable workflow (Requirement #34): dispatched once by the setup wizard
 # right after a project is linked or created, via workflow_dispatch — not
 # on every push, unlike draft-log-entry.yml. Needs the caller's actual file
-# tree, not just a diff, so unlike the other reusable workflows this one
-# checks out both devlore (for the scripts) and the caller's own repo (for
-# the content to analyze), into separate paths in the same job.
+# tree, not just a diff, so this checks out the caller's own repo (for the
+# content to analyze) into its own path, distinct from devlore's own
+# installed location.
+#
+# Installs devlore as the published @starterculture/devlore npm package
+# rather than checking out the private BubbaF377/devlore source repo —
+# every linked project's own devlore-github-token is scoped to repos it
+# manages, never to the maintainer's private source, so a checkout-based
+# approach only ever worked for the maintainer's own instance. The
+# project checkout below is unrelated and still needed — that's the
+# caller's own repo, not devlore's source.
 
 on:
   workflow_call:
@@ -28,17 +36,7 @@ permissions:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: devlore
     steps:
-      - name: Checkout devlore
-        uses: actions/checkout@v7
-        with:
-          repository: BubbaF377/devlore
-          token: ${{ secrets.devlore-github-token }}
-          path: devlore
-
       - name: Checkout project
         uses: actions/checkout@v7
         with:
@@ -47,12 +45,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: devlore/package-lock.json
 
-      - run: npm ci
+      - run: npm install @starterculture/devlore
 
-      - run: npx ts-node src/actions/analyze-codebase.ts
+      - run: node node_modules/@starterculture/devlore/dist/actions/analyze-codebase.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
           DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
