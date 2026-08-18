@@ -11,6 +11,12 @@ name: Sync visualizer
 # GITHUB_TOKEN — it only ever does plain content reads/writes against the
 # project repo and a usage write into the vault, and the wizard's own
 # devlore-github-token already has "All repositories" access to both.
+#
+# Installs devlore as the published @starterculture/devlore npm package
+# rather than checking out the private BubbaF377/devlore source repo —
+# every linked project's own devlore-github-token is scoped to repos it
+# manages, never to the maintainer's private source, so a checkout-based
+# approach only ever worked for the maintainer's own instance.
 
 on:
   workflow_call:
@@ -43,20 +49,13 @@ jobs:
   sync-visualizer:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout devlore
-        uses: actions/checkout@v7
-        with:
-          repository: BubbaF377/devlore
-          token: ${{ secrets.devlore-github-token }}
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      - run: npm install @starterculture/devlore
 
-      - run: npx ts-node src/actions/sync-visualizer.ts
+      - run: node node_modules/@starterculture/devlore/dist/actions/sync-visualizer.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
           DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
