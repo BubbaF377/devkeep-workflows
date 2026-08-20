@@ -53,6 +53,19 @@ jobs:
         with:
           node-version: 24
 
+      # No lockfile exists in this bare install (there's no project
+      # checkout here, just `npm install` of one published package) to
+      # key a cache off of the usual way (actions/setup-node's own
+      # `cache: npm` option needs one) — caching npm's global download
+      # cache under a static key instead still avoids re-fetching every
+      # dependency tarball, including @napi-rs/keyring's per-platform
+      # native binary, on every run.
+      - name: Cache npm's download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-devlore-${{ runner.os }}
+
       - run: npm install @starterculture/devlore
 
       - run: node node_modules/@starterculture/devlore/dist/actions/sync-visualizer.js
