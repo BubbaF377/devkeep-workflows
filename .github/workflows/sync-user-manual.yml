@@ -1,23 +1,22 @@
 name: Sync user manual
 
-# Reusable workflow (Requirement #38): a linked project repo's own
-# devlore.yml calls this via `workflow_call` on every push, alongside
+# Reusable workflow (Requirement #38): a linked project repo's own caller
+# workflow calls this via `workflow_call` on every push, alongside
 # draft-log-entry.yml and sync-test-plan.yml — but it's a no-op on most
 # pushes. It only regenerates docs/USER_MANUAL.md when the project's own
 # docs/PRODUCT.md requirements have actually changed since the last
 # generation (detected in-script via a content hash embedded in the
-# manual's own banner).
+# manual's own banner) — or, for a Devkeep-style monorepo with its own
+# docs/MODULES.md, per module.
 #
 # Unlike draft-log-entry.yml, this never needs the caller's default
 # GITHUB_TOKEN — it only ever does plain content reads/writes against the
 # project repo and a usage write into the vault, and the wizard's own
-# devlore-github-token already has "All repositories" access to both.
+# devkeep-github-token already has "All repositories" access to both.
 #
-# Installs devlore as the published @starterculture/devlore npm package
-# rather than checking out the private BubbaF377/devlore source repo —
-# every linked project's own devlore-github-token is scoped to repos it
-# manages, never to the maintainer's private source, so a checkout-based
-# approach only ever worked for the maintainer's own instance.
+# Checks out Devkeep's own source (BubbaF377/devkeep, private) and builds
+# it fresh on every run, rather than installing a published npm package —
+# see draft-log-entry.yml for why (Requirement #25 superseded).
 
 on:
   workflow_call:
@@ -31,7 +30,7 @@ on:
     secrets:
       anthropic-api-key:
         required: true
-      devlore-github-token:
+      devkeep-github-token:
         required: true
 
 permissions:
@@ -39,10 +38,11 @@ permissions:
 
 # Serialize per project repo: the wizard's linking sequence pushes several
 # commits in a row (docs/PRODUCT.md, then each caller workflow file), and
-# once devlore.yml exists, every one of those pushes re-triggers it — so
-# without this, concurrent runs race the Contents API's create-vs-update
-# check on docs/USER_MANUAL.md (one run's "no existing file" read goes
-# stale the instant another run creates it, so its own create call 422s).
+# once the caller workflow exists, every one of those pushes re-triggers
+# it — so without this, concurrent runs race the Contents API's
+# create-vs-update check on docs/USER_MANUAL.md (one run's "no existing
+# file" read goes stale the instant another run creates it, so its own
+# create call 422s).
 concurrency:
   group: sync-user-manual-${{ github.repository }}
 
@@ -50,29 +50,27 @@ jobs:
   sync-user-manual:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out Devkeep's own source
+        uses: actions/checkout@v4
+        with:
+          repository: BubbaF377/devkeep
+          ref: main
+          token: ${{ secrets.devkeep-github-token }}
+
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
 
-      # No lockfile exists in this bare install (there's no project
-      # checkout here, just `npm install` of one published package) to
-      # key a cache off of the usual way (actions/setup-node's own
-      # `cache: npm` option needs one) — caching npm's global download
-      # cache under a static key instead still avoids re-fetching every
-      # dependency tarball, including @napi-rs/keyring's per-platform
-      # native binary, on every run.
-      - name: Cache npm's download cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-devlore-${{ runner.os }}
+      - run: npm ci
 
-      - run: npm install @starterculture/devlore
+      - run: npm run build --prefix modules/core
+      - run: npm run build --prefix modules/devlore
 
-      - run: node node_modules/@starterculture/devlore/dist/actions/sync-user-manual.js
+      - run: node modules/devlore/dist/bin/syncUserManualCli.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
-          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
           PROJECT_NAME: ${{ inputs.project-name }}
           PROJECT_REPO: ${{ github.repository }}
           VAULT_REPO: ${{ inputs.vault-repo }}

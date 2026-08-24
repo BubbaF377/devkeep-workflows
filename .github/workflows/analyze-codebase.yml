@@ -9,7 +9,7 @@ name: Analyze codebase
 #
 # Installs devlore as the published @starterculture/devlore npm package
 # rather than checking out the private BubbaF377/devlore source repo —
-# every linked project's own devlore-github-token is scoped to repos it
+# every linked project's own devkeep-github-token is scoped to repos it
 # manages, never to the maintainer's private source, so a checkout-based
 # approach only ever worked for the maintainer's own instance. The
 # project checkout below is unrelated and still needed — that's the
@@ -27,7 +27,7 @@ on:
     secrets:
       anthropic-api-key:
         required: true
-      devlore-github-token:
+      devkeep-github-token:
         required: true
 
 permissions:
@@ -64,7 +64,7 @@ jobs:
       - run: node node_modules/@starterculture/devlore/dist/actions/analyze-codebase.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
-          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          DEVLORE_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
           PROJECT_NAME: ${{ inputs.project-name }}
           VAULT_REPO: ${{ inputs.vault-repo }}
           PROJECT_PATH: ${{ github.workspace }}/project

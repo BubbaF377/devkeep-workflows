@@ -10,11 +10,11 @@ name: Sync test plan
 # Unlike draft-log-entry.yml, this never needs the caller's default
 # GITHUB_TOKEN — it only ever does plain content reads/writes against the
 # project repo and a usage write into the vault, and the wizard's own
-# devlore-github-token already has "All repositories" access to both.
+# devkeep-github-token already has "All repositories" access to both.
 #
 # Installs devlore as the published @starterculture/devlore npm package
 # rather than checking out the private BubbaF377/devlore source repo —
-# every linked project's own devlore-github-token is scoped to repos it
+# every linked project's own devkeep-github-token is scoped to repos it
 # manages, never to the maintainer's private source, so a checkout-based
 # approach only ever worked for the maintainer's own instance.
 
@@ -30,7 +30,7 @@ on:
     secrets:
       anthropic-api-key:
         required: true
-      devlore-github-token:
+      devkeep-github-token:
         required: true
 
 permissions:
@@ -71,7 +71,7 @@ jobs:
       - run: node node_modules/@starterculture/devlore/dist/actions/sync-test-plan.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
-          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          DEVLORE_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
           PROJECT_NAME: ${{ inputs.project-name }}
           PROJECT_REPO: ${{ github.repository }}
           VAULT_REPO: ${{ inputs.vault-repo }}

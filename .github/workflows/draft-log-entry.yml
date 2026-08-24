@@ -1,18 +1,21 @@
 name: Draft log entry
 
-# Reusable workflow (Requirement #8): a linked project repo's own workflow
-# calls this via `workflow_call` on every push, so the diff/Claude/commit
-# logic lives here once instead of being duplicated per project.
+# Reusable workflow (Requirement #8): a linked project repo's own caller
+# workflow calls this via `workflow_call` on every push, so the
+# diff/Claude/commit logic lives here once instead of being duplicated
+# per project.
 #
 # Runs in the caller's context: the default GITHUB_TOKEN is scoped to the
 # caller repo (used to read its diff via the compare API), while writing
-# into this repo needs the devlore-github-token secret instead.
+# into the vault needs the devkeep-github-token secret instead.
 #
-# Installs devlore as the published @starterculture/devlore npm package
-# rather than checking out the private BubbaF377/devlore source repo —
-# every linked project's own devlore-github-token is scoped to repos it
-# manages, never to the maintainer's private source, so a checkout-based
-# approach only ever worked for the maintainer's own instance.
+# Checks out Devkeep's own source (BubbaF377/devkeep, private) and builds
+# it fresh on every run, rather than installing a published npm package —
+# Devkeep isn't distributed as a standalone package (see its own
+# docs/PRODUCT.md — Requirement #25 was superseded when Devlore moved
+# into Devkeep's single shared runtime). Every linked project's own
+# devkeep-github-token already has "All repositories" access, which is
+# what this checkout of a separate, private repo needs.
 
 on:
   workflow_call:
@@ -26,7 +29,7 @@ on:
     secrets:
       anthropic-api-key:
         required: true
-      devlore-github-token:
+      devkeep-github-token:
         required: true
 
 permissions:
@@ -36,29 +39,27 @@ jobs:
   draft:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out Devkeep's own source
+        uses: actions/checkout@v4
+        with:
+          repository: BubbaF377/devkeep
+          ref: main
+          token: ${{ secrets.devkeep-github-token }}
+
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
 
-      # No lockfile exists in this bare install (there's no project
-      # checkout here, just `npm install` of one published package) to
-      # key a cache off of the usual way (actions/setup-node's own
-      # `cache: npm` option needs one) — caching npm's global download
-      # cache under a static key instead still avoids re-fetching every
-      # dependency tarball, including @napi-rs/keyring's per-platform
-      # native binary, on every run.
-      - name: Cache npm's download cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-devlore-${{ runner.os }}
+      - run: npm ci
 
-      - run: npm install @starterculture/devlore
+      - run: npm run build --prefix modules/core
+      - run: npm run build --prefix modules/devlore
 
-      - run: node node_modules/@starterculture/devlore/dist/actions/draft-log-entry.js
+      - run: node modules/devlore/dist/bin/draftLogEntryCli.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
-          DEVLORE_GITHUB_TOKEN: ${{ secrets.devlore-github-token }}
+          DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
           GITHUB_TOKEN: ${{ github.token }}
           PROJECT_NAME: ${{ inputs.project-name }}
           PROJECT_REPO: ${{ github.repository }}
