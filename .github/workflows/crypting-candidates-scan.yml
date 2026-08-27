@@ -1,0 +1,63 @@
+name: Crypting candidates scan
+
+# Reusable workflow (Requirement #8, same pattern as draft-log-entry.yml):
+# a linked project repo's own caller workflow calls this via
+# `workflow_call` on every push, scanning the diff for possible secrets
+# (Category A) and vendor/API references worth crypting (Category B) and
+# writing any hits into the vault as Devcrypt candidates for review.
+#
+# Runs in the caller's context: the default GITHUB_TOKEN is scoped to the
+# caller repo (used to read its diff via the compare API), while writing
+# into the vault needs the devkeep-github-token secret instead. No
+# project-name input — the candidate records key off PROJECT_REPO, not a
+# human-readable name.
+#
+# Checks out Devkeep's own source (BubbaF377/devkeep, private) and builds
+# it fresh on every run, same reasoning as draft-log-entry.yml.
+
+on:
+  workflow_call:
+    inputs:
+      vault-repo:
+        required: true
+        type: string
+    secrets:
+      devkeep-github-token:
+        required: true
+      devcrypt-blind-index-key:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Devkeep's own source
+        uses: actions/checkout@v4
+        with:
+          repository: BubbaF377/devkeep
+          ref: main
+          token: ${{ secrets.devkeep-github-token }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build --prefix modules/core
+      - run: npm run build --prefix modules/devlore
+      - run: npm run build --prefix modules/devcrypt
+
+      - run: node modules/devcrypt/dist/bin/scanCryptingCandidatesCli.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
+          DEVCRYPT_BLIND_INDEX_KEY: ${{ secrets.devcrypt-blind-index-key }}
+          PROJECT_REPO: ${{ github.repository }}
+          VAULT_REPO: ${{ inputs.vault-repo }}
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
