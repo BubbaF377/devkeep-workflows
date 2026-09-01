@@ -1,0 +1,121 @@
+name: Devseer review
+
+# REUSABLE WORKFLOW — this file's home is the separate, public
+# BubbaF377/devkeep-workflows repo, at .github/workflows/devseer-review.yml.
+# It is kept here only so it lives beside the code it runs and changes
+# with it; nothing in this repo executes it (only files under
+# .github/workflows/ run, and this is not one).
+#
+# The reusable workflows live in a separate public repo because GitHub
+# disallows a public repo's workflow from calling a reusable workflow
+# hosted in a private one — same reasoning as every other Devkeep
+# workflow (see modules/devlore/src/workflowTemplates.ts).
+#
+# Called by the per-project caller workflow that Devkeep's "Link a
+# project" flow generates (devkeep-devseer-review.yml), which is
+# workflow_dispatch-only: a person asks for a review, nothing fires on
+# its own (modules/devseer/docs/PRODUCT.md, "Trigger model").
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: The project's name as Devkeep knows it
+        required: true
+        type: string
+      vault-repo:
+        description: owner/repo of the Devkeep vault the report is written to
+        required: true
+        type: string
+      review-tag:
+        description: The release tag to review
+        required: true
+        type: string
+      review-tier:
+        description: Model tier — fast, balanced, capable, or max
+        required: false
+        type: string
+        default: capable
+      history-depth:
+        # Phase 6 of the methodology examines history and intent, which a
+        # shallow clone cannot answer. Bounded rather than full history:
+        # architectural intent lives in recent evolution, and cloning
+        # years of commits costs real time on a large repo for evidence
+        # the review will not use. Exposed as an input so a repo that
+        # genuinely needs more can ask for it — 0 means full history.
+        description: Commits of history to fetch (0 for all)
+        required: false
+        type: number
+        default: 500
+    secrets:
+      anthropic-api-key:
+        required: true
+      devkeep-github-token:
+        required: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # A fifteen-phase review of a whole repository is long by design, but
+    # not unbounded — runReview's own budget should stop it first, and
+    # this is the backstop if something else hangs.
+    timeout-minutes: 120
+    permissions:
+      # Read is all the job's own token needs: the report is written to
+      # the vault with devkeep-github-token, not with GITHUB_TOKEN.
+      contents: read
+
+    steps:
+      # The repository under review, at the tag. This is a git operation,
+      # not a REST call — which is the whole reason Devseer runs on a
+      # runner: exploring the code costs nothing against the API rate
+      # limit that Devlore was burned by (see its own docs/PRODUCT.md,
+      # "GitHub rate limit exhausted").
+      - name: Check out the project at the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.review-tag }}
+          fetch-depth: ${{ inputs.history-depth }}
+          path: project
+
+      # Devkeep's own source, which carries the reviewer and its tools.
+      # Note the known gap this shares with the other real workflows: a
+      # linked project's devkeep-github-token has to be able to read
+      # Devkeep's private source for this step to work, and a token
+      # scoped only to the repos it manages cannot. Same limitation as
+      # draft-log-entry.yml — not solved here.
+      - name: Check out Devkeep
+        uses: actions/checkout@v4
+        with:
+          repository: BubbaF377/devkeep
+          token: ${{ secrets.devkeep-github-token }}
+          path: devkeep
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: devkeep/package-lock.json
+
+      - name: Install and build
+        working-directory: devkeep
+        run: |
+          npm ci
+          npm run build --prefix modules/core
+          npm run build --prefix modules/devseer
+
+      - name: Run the review
+        working-directory: devkeep
+        env:
+          PROJECT_NAME: ${{ inputs.project-name }}
+          REVIEW_TAG: ${{ inputs.review-tag }}
+          REVIEW_TIER: ${{ inputs.review-tier }}
+          # Absolute, because the CLI resolves paths against the checkout
+          # root and runs from Devkeep's own directory, not the project's.
+          REPO_PATH: ${{ github.workspace }}/project
+          VAULT_REPO: ${{ inputs.vault-repo }}
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
+        # Exits non-zero if the run produced no report, so the workflow
+        # goes red rather than looking like a review that found nothing.
+        run: node modules/devseer/dist/bin/runReviewCli.js
