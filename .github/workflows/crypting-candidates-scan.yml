@@ -12,9 +12,17 @@ name: Crypting candidates scan
 # project-name input — the candidate records key off PROJECT_REPO, not a
 # human-readable name.
 #
-# Checks out Devkeep's own source (BubbaF377/devkeep, private) and builds
-# it fresh on every run, same reasoning as draft-log-entry.yml.
-
+# Installs @starterculture/devkeep-actions — a bundled build of Devkeep's
+# CI entrypoints — rather than checking out BubbaF377/devkeep and
+# building it. Changed 2026-09-02, and it is the change that makes
+# Devkeep work for anyone who is not its author: the checkout needed a
+# devkeep-github-token that could read Devkeep's own private source,
+# which only ever worked for the one account that owns it. A linked
+# project's token now needs nothing beyond its own repo and the vault.
+#
+# Pinned to an exact version, never a range or `latest`: with a floating
+# pin, one publish changes behaviour under every linked project at once,
+# with no version boundary to debug against.
 on:
   workflow_call:
     inputs:
@@ -34,25 +42,24 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out Devkeep's own source
-        uses: actions/checkout@v4
-        with:
-          repository: BubbaF377/devkeep
-          ref: main
-          token: ${{ secrets.devkeep-github-token }}
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      # No lockfile exists in this bare install (there is no project
+      # checkout here, just `npm install` of one published package) for
+      # actions/setup-node's own `cache: npm` to key off — caching npm's
+      # global download cache under a static key instead still avoids
+      # re-fetching every dependency tarball on every run.
+      - name: Cache npm's download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm run build --prefix modules/core
-      - run: npm run build --prefix modules/devlore
-      - run: npm run build --prefix modules/devcrypt
+      - run: npm install @starterculture/devkeep-actions@0.1.0
 
-      - run: node modules/devcrypt/dist/bin/scanCryptingCandidatesCli.js
+      - run: node node_modules/@starterculture/devkeep-actions/dist/crypting-candidates-scan.js
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}

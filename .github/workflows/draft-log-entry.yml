@@ -9,13 +9,17 @@ name: Draft log entry
 # caller repo (used to read its diff via the compare API), while writing
 # into the vault needs the devkeep-github-token secret instead.
 #
-# Checks out Devkeep's own source (BubbaF377/devkeep, private) and builds
-# it fresh on every run, rather than installing a published npm package —
-# Devkeep isn't distributed as a standalone package (see its own
-# docs/PRODUCT.md — Requirement #25 was superseded when Devlore moved
-# into Devkeep's single shared runtime). Every linked project's own
-# devkeep-github-token already has "All repositories" access, which is
-# what this checkout of a separate, private repo needs.
+# Installs @starterculture/devkeep-actions — a bundled build of Devkeep's
+# CI entrypoints — rather than checking out BubbaF377/devkeep and
+# building it. Changed 2026-09-02, and it is the change that makes
+# Devkeep work for anyone who is not its author: the checkout needed a
+# devkeep-github-token that could read Devkeep's own private source,
+# which only ever worked for the one account that owns it. A linked
+# project's token now needs nothing beyond its own repo and the vault.
+#
+# Pinned to an exact version, never a range or `latest`: with a floating
+# pin, one publish changes behaviour under every linked project at once,
+# with no version boundary to debug against.
 
 on:
   workflow_call:
@@ -39,24 +43,24 @@ jobs:
   draft:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out Devkeep's own source
-        uses: actions/checkout@v4
-        with:
-          repository: BubbaF377/devkeep
-          ref: main
-          token: ${{ secrets.devkeep-github-token }}
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      # No lockfile exists in this bare install (there is no project
+      # checkout here, just `npm install` of one published package) for
+      # actions/setup-node's own `cache: npm` to key off — caching npm's
+      # global download cache under a static key instead still avoids
+      # re-fetching every dependency tarball on every run.
+      - name: Cache npm's download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm run build --prefix modules/core
-      - run: npm run build --prefix modules/devlore
+      - run: npm install @starterculture/devkeep-actions@0.1.0
 
-      - run: node modules/devlore/dist/bin/draftLogEntryCli.js
+      - run: node node_modules/@starterculture/devkeep-actions/dist/draft-log-entry.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
           DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
