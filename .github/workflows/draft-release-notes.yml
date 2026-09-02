@@ -18,6 +18,16 @@ name: Draft release notes
 # manages, never to the maintainer's private source, so a checkout-based
 # approach only ever worked for the maintainer's own instance.
 
+#
+# Installs @starterculture/devkeep-actions rather than the deprecated
+# @starterculture/devlore package. Changed 2026-09-02, when Requirement
+# #42's generation was ported into Devkeep itself.
+#
+# Stays in CI because its trigger is a release tag — nobody is watching
+# when it fires — which is also why its prompt ships publicly.
+#
+# Pinned to an exact version, never a range or `latest`.
+
 on:
   workflow_call:
     inputs:
@@ -47,25 +57,28 @@ jobs:
         with:
           node-version: 24
 
-      # No lockfile exists in this bare install (there's no project
-      # checkout here, just `npm install` of one published package) to
-      # key a cache off of the usual way (actions/setup-node's own
-      # `cache: npm` option needs one) — caching npm's global download
-      # cache under a static key instead still avoids re-fetching every
-      # dependency tarball, including @napi-rs/keyring's per-platform
-      # native binary, on every run.
+      # No lockfile exists in this bare install (there is no project
+      # checkout here, just `npm install` of one published package) for
+      # actions/setup-node's own `cache: npm` to key off — caching npm's
+      # global download cache under a static key instead still avoids
+      # re-fetching every dependency tarball on every run.
       - name: Cache npm's download cache
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: npm-devlore-${{ runner.os }}
+          key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm install @starterculture/devlore
+      - run: npm install @starterculture/devkeep-actions@0.3.0
 
-      - run: node node_modules/@starterculture/devlore/dist/actions/draft-release-notes.js
+      # Two tokens, deliberately. GITHUB_TOKEN is the workflow's own
+      # repo-scoped one, used for the project repo's tags and commit range
+      # — those need Metadata: Read, which devkeep-github-token does not
+      # carry for a linked repo. Found live as a 404 on a first real
+      # release; draft-log-entry had already solved it the same way.
+      - run: node node_modules/@starterculture/devkeep-actions/dist/draft-release-notes.js
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
-          DEVLORE_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
+          DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
           GITHUB_TOKEN: ${{ github.token }}
           PROJECT_NAME: ${{ inputs.project-name }}
           PROJECT_REPO: ${{ github.repository }}
