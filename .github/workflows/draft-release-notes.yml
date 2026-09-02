@@ -68,7 +68,7 @@ jobs:
           path: ~/.npm
           key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm install @starterculture/devkeep-actions@0.3.1
+      - run: npm install @starterculture/devkeep-actions@0.4.0
 
       # Two tokens, deliberately. GITHUB_TOKEN is the workflow's own
       # repo-scoped one, used for the project repo's tags and commit range

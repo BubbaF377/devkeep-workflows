@@ -61,7 +61,7 @@ jobs:
           path: ~/.npm
           key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm install @starterculture/devkeep-actions@0.3.1
+      - run: npm install @starterculture/devkeep-actions@0.4.0
 
       - run: node node_modules/@starterculture/devkeep-actions/dist/consolidate-release.js
         env:
