@@ -9,8 +9,12 @@ name: Crypting candidates scan
 # Runs in the caller's context: the default GITHUB_TOKEN is scoped to the
 # caller repo (used to read its diff via the compare API), while writing
 # into the vault needs the devkeep-github-token secret instead. No
-# project-name input — the candidate records key off PROJECT_REPO, not a
-# human-readable name.
+# candidate records key off PROJECT_REPO, not a human-readable name, so
+# the scan's own work needs no project name at all. It takes one anyway,
+# optionally, for a different purpose: the vault's per-project health.json
+# is keyed by project name, and without it this job cannot record whether
+# it succeeded. Added 2026-09-03, after the first run on 0.5.0 recorded
+# health for every other action and silently skipped this one.
 #
 # Installs @starterculture/devkeep-actions — a bundled build of Devkeep's
 # CI entrypoints — rather than checking out BubbaF377/devkeep and
