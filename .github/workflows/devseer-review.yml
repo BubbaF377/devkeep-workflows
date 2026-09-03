@@ -79,11 +79,35 @@ jobs:
           path: project
 
       # Devkeep's own source, which carries the reviewer and its tools.
-      # Note the known gap this shares with the other real workflows: a
-      # linked project's devkeep-github-token has to be able to read
-      # Devkeep's private source for this step to work, and a token
-      # scoped only to the repos it manages cannot. Same limitation as
-      # draft-log-entry.yml — not solved here.
+      #
+      # This is now the ONLY workflow that checks out private source.
+      # draft-log-entry, consolidate-release, draft-release-notes,
+      # sync-onboarding and crypting-candidates-scan all moved to the
+      # published @starterculture/devkeep-actions bundle on 2026-09-02,
+      # so a linked project's token no longer needs to reach Devkeep's
+      # source for any of them. (An earlier version of this comment said
+      # "same limitation as draft-log-entry.yml"; that stopped being true
+      # that day and was corrected on 2026-09-03.)
+      #
+      # The requirement is on the TOKEN, not on anyone's identity:
+      # whatever is supplied as devkeep-github-token must have `contents:
+      # read` on BubbaF377/devkeep. Read, not admin, and not restricted to
+      # the owning person or org — a collaborator, a team member, a
+      # fine-grained PAT covering the repo, or a GitHub App installation
+      # token all satisfy it. What makes it feel narrower is that this one
+      # secret does three jobs at once: read Devkeep's source, read/write
+      # the linked project, and write the vault. A linked project's token
+      # is normally scoped only to the repos it manages, so in practice
+      # today just one token holds all three.
+      #
+      # This cannot be fixed the way the other five were, and widening
+      # access is not a workaround either. What a runner would have to
+      # fetch is reviewMethodology.ts, which must never be published (root
+      # docs/PRODUCT.md) — so read access to this source IS the
+      # proprietary asset, whether it is granted via npm or via a
+      # collaborator invite. Devseer's CI review being limited to holders
+      # of that access is the accepted cost of that decision, not an
+      # unsolved problem.
       - name: Check out Devkeep
         uses: actions/checkout@v4
         with:
