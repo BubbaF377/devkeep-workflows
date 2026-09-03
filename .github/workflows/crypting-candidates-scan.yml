@@ -8,7 +8,7 @@ name: Crypting candidates scan
 #
 # Runs in the caller's context: the default GITHUB_TOKEN is scoped to the
 # caller repo (used to read its diff via the compare API), while writing
-# into the vault needs the devkeep-github-token secret instead. No
+# into the vault needs the devkeep-github-token secret instead. Its
 # candidate records key off PROJECT_REPO, not a human-readable name, so
 # the scan's own work needs no project name at all. It takes one anyway,
 # optionally, for a different purpose: the vault's per-project health.json
