@@ -1,0 +1,63 @@
+name: Check README in sync
+
+# The README describes every workflow in this repo, and on 2026-09-03 it
+# described six that had just been deleted — while its own second and
+# third bullets disagreed with each other about which npm package two of
+# the remaining workflows installed. Both errors had been sitting there
+# since 2026-09-02. Nothing caught them because nothing could: a pin or an
+# install line breaks loudly when it is wrong, and a sentence describing
+# one does not.
+#
+# So this makes the one part that is mechanically checkable, checked. The
+# authoritative per-workflow descriptions are the top-level bullets
+# (lines beginning "- **"), and the set of .yml files they name must equal
+# the set of files actually here. Prose outside those bullets is free to
+# say anything — including naming workflows that were removed, which the
+# README does deliberately and which is why this reads bullets rather than
+# the whole file.
+#
+# This only ever catches a file appearing or disappearing. It cannot tell
+# whether what a bullet *says* about a workflow is true; keeping a claim
+# about another file out of a comment in the first place is what covers
+# that (see AGENTS.md in Devkeep).
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare the README's bullets against the workflow files
+        run: |
+          set -euo pipefail
+
+          # Every workflow here EXCEPT this one and its sibling checks —
+          # they are repo housekeeping, not reusable workflows a linked
+          # project calls, so the README does not describe them.
+          ls .github/workflows/ \
+            | grep -vE '^check-' \
+            | sort -u > /tmp/present.txt
+
+          grep '^- \*\*' README.md \
+            | grep -oE '[a-z-]+\.yml' \
+            | sort -u > /tmp/described.txt
+
+          if diff -u /tmp/described.txt /tmp/present.txt; then
+            echo "In sync: the README's bullets describe exactly the workflows present."
+            exit 0
+          fi
+
+          echo "::error::README.md is out of sync with .github/workflows/. Lines marked '-' are described but absent (delete or move them out of the bullet list); lines marked '+' exist but are undescribed (add a bullet)."
+          exit 1
