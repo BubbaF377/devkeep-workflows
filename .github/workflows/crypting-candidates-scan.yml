@@ -26,6 +26,13 @@ name: Crypting candidates scan
 on:
   workflow_call:
     inputs:
+      # Optional so callers generated before 2026-09-03 keep working
+      # unchanged — a required input would break every already-linked
+      # repo the moment this landed. Without it the scan still runs; it
+      # just cannot record its outcome, and says so in the log.
+      project-name:
+        required: false
+        type: string
       vault-repo:
         required: true
         type: string
@@ -63,6 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DEVKEEP_GITHUB_TOKEN: ${{ secrets.devkeep-github-token }}
+          PROJECT_NAME: ${{ inputs.project-name }}
           DEVCRYPT_BLIND_INDEX_KEY: ${{ secrets.devcrypt-blind-index-key }}
           PROJECT_REPO: ${{ github.repository }}
           VAULT_REPO: ${{ inputs.vault-repo }}
