@@ -15,12 +15,11 @@ name: Sync onboarding guide
 # against the project repo and the vault, and the wizard's own
 # devkeep-github-token already has "All repositories" access to both.
 #
-# Installs devlore as the published @starterculture/devlore npm package
-# rather than checking out the private BubbaF377/devlore source repo —
-# every linked project's own devkeep-github-token is scoped to repos it
-# manages, never to the maintainer's private source, so a checkout-based
-# approach only ever worked for the maintainer's own instance.
-
+# Installs a published npm package rather than checking out the private
+# Devkeep source repo — every linked project's own devkeep-github-token is
+# scoped to the repos it manages, never to the maintainer's private
+# source, so a checkout-based approach only ever worked for the
+# maintainer's own instance.
 #
 # Installs @starterculture/devkeep-actions rather than the deprecated
 # @starterculture/devlore package. Changed 2026-09-02, when Requirement
