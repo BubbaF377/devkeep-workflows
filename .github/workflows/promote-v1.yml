@@ -1,0 +1,92 @@
+name: Promote main to v1
+
+# Linked projects call these workflows at `@v1`, not `@main`. Until
+# 2026-09-09 they called `@main`, which meant every push to this repo
+# reached every linked project immediately — four projects at the time,
+# with no step between writing a workflow and running it in someone
+# else's repository. The npm side was already bounded (each workflow
+# installs `@starterculture/devkeep-actions` at an exact pin, so a bad
+# publish reaches nobody until a workflow bumps it); the workflow ref was
+# the one unbounded path left.
+#
+# So `v1` is a **moving major tag**, the same convention as
+# `actions/checkout@v4`: `main` is where work lands, `v1` is what
+# executes, and this job is the step between them. A fix reaches linked
+# projects when it is promoted rather than when it is pushed, and it
+# reaches them without re-linking anything — which matters because
+# re-linking is Devkeep's own propagation channel and making every
+# workflow change require one would be worse than the problem this
+# solves.
+#
+# Manual dispatch only, deliberately. An automatic promotion on green
+# would be the same thing as `@main` with extra steps.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Promote only what CI has already passed, and read that verdict
+      # rather than re-running the check here. A second copy of the check
+      # would be a second thing to keep in sync — the exact failure the
+      # check itself exists to catch.
+      - name: Require the README check to have passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          echo "Promoting $SHA"
+
+          CONCLUSION=$(gh api \
+            "repos/${{ github.repository }}/actions/runs?head_sha=$SHA&status=completed" \
+            --jq '[.workflow_runs[] | select(.name == "Check README in sync")] | first | .conclusion // ""')
+
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "README check passed on this commit."
+            exit 0
+          fi
+
+          # An empty conclusion and a failed one are different problems
+          # and get different messages: one is "not yet", the other is
+          # "no". Reporting them alike would send someone to fix a check
+          # that is merely still running.
+          if [ -z "$CONCLUSION" ]; then
+            echo "::error::No completed 'Check README in sync' run for $SHA. It may still be running — wait for it and dispatch again."
+          else
+            echo "::error::'Check README in sync' concluded '$CONCLUSION' for $SHA. Fix main before promoting it."
+          fi
+          exit 1
+
+      - name: Move v1 to this commit
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+
+          # -f because a major tag moves; that is what makes it a major
+          # tag. The audit trail is this workflow's own run history, which
+          # is why promotion is a job rather than someone's local
+          # `git push -f`.
+          git tag -f v1 "$SHA"
+          git push -f origin v1
+
+          {
+            echo "### Promoted to \`v1\`"
+            echo
+            echo "\`v1\` now points at \`$SHA\`."
+            echo
+            echo "Every linked project calling \`@v1\` picks this up on its next run, with no re-link."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -43,11 +43,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Every workflow here EXCEPT this one and its sibling checks —
-          # they are repo housekeeping, not reusable workflows a linked
-          # project calls, so the README does not describe them.
+          # Every workflow here EXCEPT this repo's own housekeeping —
+          # the checks, and promote-v1.yml, which moves the major tag.
+          # None of them is a reusable workflow a linked project calls, so
+          # the README does not describe them. The prefixes are the rule:
+          # a new housekeeping job is named check-* or promote-*, and
+          # anything else here is something someone else runs.
           ls .github/workflows/ \
-            | grep -vE '^check-' \
+            | grep -vE '^(check|promote)-' \
             | sort -u > /tmp/present.txt
 
           grep '^- \*\*' README.md \
