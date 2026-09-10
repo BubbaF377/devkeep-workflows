@@ -31,6 +31,20 @@ on:
         description: The release tag to review
         required: true
         type: string
+      review-agent:
+        # Which auditor runs. Devseer is a surface for auditors, not one
+        # auditor — see modules/devseer/docs/PRODUCT.md, "Tabs, one per
+        # expertise". Defaults to the architect, the only one before
+        # 2026-09-09, so a caller that predates this keeps working.
+        #
+        # An unknown name is refused by the CLI rather than falling back:
+        # a run that asked for QA and silently produced an architecture
+        # review would spend a full budget on the wrong document and file
+        # it where the right one belongs.
+        description: Which auditor to run — engineering or qa
+        required: false
+        type: string
+        default: engineering
       review-tier:
         description: Model tier — fast, balanced, capable, or max
         required: false
@@ -134,6 +148,7 @@ jobs:
           PROJECT_NAME: ${{ inputs.project-name }}
           REVIEW_TAG: ${{ inputs.review-tag }}
           REVIEW_TIER: ${{ inputs.review-tier }}
+          REVIEW_AGENT: ${{ inputs.review-agent }}
           # Absolute, because the CLI resolves paths against the checkout
           # root and runs from Devkeep's own directory, not the project's.
           REPO_PATH: ${{ github.workspace }}/project
