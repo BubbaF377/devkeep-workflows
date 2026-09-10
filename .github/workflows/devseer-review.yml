@@ -139,7 +139,15 @@ jobs:
         working-directory: devkeep
         run: |
           npm ci
-          npm run build --prefix modules/core
+          # Devseer builds its own dependencies, so this line does not
+          # have to know what they are. It did until 2026-09-10, listing
+          # core alone — and the day Devseer gained a dependency on
+          # Devlore the runner failed with "Cannot find module
+          # '@devkeep/devlore'": the package resolves, but its types live
+          # in a dist nobody had built. A build step in another
+          # repository is the worst place to keep that knowledge, and
+          # nothing here could have noticed it going stale.
+          npm run build:deps --prefix modules/devseer
           npm run build --prefix modules/devseer
 
       - name: Run the review
