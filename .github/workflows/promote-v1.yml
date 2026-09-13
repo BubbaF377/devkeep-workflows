@@ -10,7 +10,7 @@ name: Promote main to v1
 # the one unbounded path left.
 #
 # So `v1` is a **moving major tag**, the same convention as
-# `actions/checkout@v4`: `main` is where work lands, `v1` is what
+# `actions/checkout@v<major>`: `main` is where work lands, `v1` is what
 # executes, and this job is the step between them. A fix reaches linked
 # projects when it is promoted rather than when it is pushed, and it
 # reaches them without re-linking anything — which matters because
@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0

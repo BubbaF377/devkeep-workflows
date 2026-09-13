@@ -86,7 +86,7 @@ jobs:
       # limit that Scribe was burned by (see its own docs/PRODUCT.md,
       # "GitHub rate limit exhausted").
       - name: Check out the project at the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.review-tag }}
           fetch-depth: ${{ inputs.history-depth }}
@@ -123,13 +123,13 @@ jobs:
       # of that access is the accepted cost of that decision, not an
       # unsolved problem.
       - name: Check out Devkeep
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: BubbaF377/devkeep
           token: ${{ secrets.devkeep-github-token }}
           path: devkeep
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

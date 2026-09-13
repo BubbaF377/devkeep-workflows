@@ -56,7 +56,7 @@ jobs:
       # global download cache under a static key instead still avoids
       # re-fetching every dependency tarball on every run.
       - name: Cache npm's download cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-devkeep-actions-${{ runner.os }}
