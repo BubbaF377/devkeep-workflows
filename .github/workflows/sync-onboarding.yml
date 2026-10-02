@@ -69,7 +69,7 @@ jobs:
           path: ~/.npm
           key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm install @starterculture/devkeep-actions@0.5.4
+      - run: npm install @starterculture/devkeep-actions@0.5.5
 
       - run: node node_modules/@starterculture/devkeep-actions/dist/sync-onboarding.js
         env:
