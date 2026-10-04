@@ -68,7 +68,7 @@ jobs:
           path: ~/.npm
           key: npm-devkeep-actions-${{ runner.os }}
 
-      - run: npm install @starterculture/devkeep-actions@0.5.6
+      - run: npm install @starterculture/devkeep-actions@0.5.7
 
       - run: node node_modules/@starterculture/devkeep-actions/dist/crypting-candidates-scan.js
         env:
